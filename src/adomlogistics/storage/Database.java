@@ -1,8 +1,8 @@
 package adomlogistics.storage;
 
 import adomlogistics.model.Vehicle;
+import adomlogistics.model.Driver;
 
-import adomlogistics.model.*;
 import java.sql.*;
 import java.util.*;
 
@@ -12,6 +12,7 @@ public class Database {
     private static final String PASSWORD = "Flight$23";
     private Connection connection;
 
+    // Establish database connection and initialize tables
     public Database() throws SQLException {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
@@ -22,8 +23,8 @@ public class Database {
         }
     }
 
+    // Create tables if they don't exist
     private void initializeDatabase() throws SQLException {
-        // Create tables if they don't exist
         try (Statement stmt = connection.createStatement()) {
             // Vehicles table
             stmt.execute("CREATE TABLE IF NOT EXISTS vehicles (" +
@@ -36,9 +37,9 @@ public class Database {
                     "maintenance_history TEXT, " +
                     "last_service_date VARCHAR(20))");
 
-            // Drivers table
+            // Drivers table with AUTO_INCREMENT for automatic ID assignment
             stmt.execute("CREATE TABLE IF NOT EXISTS drivers (" +
-                    "id INT PRIMARY KEY, " +
+                    "id INT PRIMARY KEY AUTO_INCREMENT, " +
                     "name VARCHAR(100), " +
                     "experience_years INT, " +
                     "distance_from_pickup FLOAT, " +
@@ -57,28 +58,45 @@ public class Database {
         }
     }
 
-    // Save a driver to the database
+    // Check if a driver already exists based on ID
     public boolean driverExists(int id) throws SQLException {
-    String sql = "SELECT COUNT(*) FROM drivers WHERE id = ?"; // Check if driver exists and return count
-    try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-        stmt.setInt(1, id);
-        try (ResultSet rs = stmt.executeQuery()) {
-            if (rs.next()) {
-                return rs.getInt(1) > 0;
+        String sql = "SELECT COUNT(*) FROM drivers WHERE id = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, id);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
             }
         }
+        return false;
     }
-    return false;
-}
 
+    // Save a driver to the database, insert or update if already exists
+    public void saveDriver(Driver driver) throws SQLException {
+        String sql = "INSERT INTO drivers (id, name, experience_years, distance_from_pickup, available) " +
+                     "VALUES (?, ?, ?, ?, ?) " +
+                     "ON DUPLICATE KEY UPDATE name=VALUES(name), " +
+                     "experience_years=VALUES(experience_years), " +
+                     "distance_from_pickup=VALUES(distance_from_pickup), " +
+                     "available=VALUES(available)";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, driver.id);  // Set manually only if you're managing IDs
+            stmt.setString(2, driver.name);
+            stmt.setInt(3, driver.experienceYears);
+            stmt.setDouble(4, driver.distanceFromPickup);
+            stmt.setBoolean(5, driver.available);
+            stmt.executeUpdate();
+        }
+    }
 
+    // Save or update vehicle record in database
     public void saveVehicle(Vehicle vehicle) throws SQLException {
         String sql = "INSERT INTO vehicles VALUES (?, ?, ?, ?, ?, ?, ?, ?) " +
-                "ON DUPLICATE KEY UPDATE " +
-                "name=VALUES(name), type=VALUES(type), fuel_usage=VALUES(fuel_usage), " +
-                "mileage=VALUES(mileage), driver_id=VALUES(driver_id), " +
-                "maintenance_history=VALUES(maintenance_history), last_service_date=VALUES(last_service_date)";
-
+                     "ON DUPLICATE KEY UPDATE " +
+                     "name=VALUES(name), type=VALUES(type), fuel_usage=VALUES(fuel_usage), " +
+                     "mileage=VALUES(mileage), driver_id=VALUES(driver_id), " +
+                     "maintenance_history=VALUES(maintenance_history), last_service_date=VALUES(last_service_date)";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, vehicle.regNumber);
             stmt.setString(2, vehicle.name);
@@ -92,27 +110,7 @@ public class Database {
         }
     }
 
-    
-    public void saveDriver(adomlogistics.model.Driver driver) throws SQLException {
-        //  Check if driver already exists and skip if it does
-        // We used ON DUPLICATE KEY UPDATE to handle updates and insertions in one query
-    String sql = "INSERT INTO drivers (id, name, experience_years, distance_from_pickup, available) " +
-                 "VALUES (?, ?, ?, ?, ?) " +
-                 "ON DUPLICATE KEY UPDATE name=VALUES(name), experience_years=VALUES(experience_years), " +
-                 "distance_from_pickup=VALUES(distance_from_pickup), available=VALUES(available)";
-    try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-        stmt.setInt(1, driver.id); 
-        stmt.setString(2, driver.name);
-        stmt.setInt(3, driver.experienceYears);
-        stmt.setDouble(4, driver.distanceFromPickup);
-        stmt.setBoolean(5, driver.available);
-        stmt.executeUpdate();
-    }
-
-    
-}
-
-
+    // Load all vehicles from the database
     public List<Vehicle> loadAllVehicles() throws SQLException {
         List<Vehicle> vehicles = new ArrayList<>();
         String sql = "SELECT * FROM vehicles";
@@ -136,6 +134,7 @@ public class Database {
         return vehicles;
     }
 
+    // Close database connection when done
     public void close() throws SQLException {
         if (connection != null && !connection.isClosed()) {
             connection.close();

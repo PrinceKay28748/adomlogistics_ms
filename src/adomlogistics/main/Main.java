@@ -1,4 +1,4 @@
-package adomlogistics.main;
+ package adomlogistics.main;
 
 import adomlogistics.model.Delivery;
 import adomlogistics.model.Driver;
@@ -37,7 +37,7 @@ public class Main {
             database = new Database();
             maintenanceService = new MaintenanceService();
             vehicleService = new VehicleService(maintenanceService, database);
-            dispatcher = new DispatcherService();
+            dispatcher = new DispatcherService(database);
             deliveryService = new DeliveryService(100, dispatcher, vehicleService);
 
             loadSampleData();
@@ -64,7 +64,7 @@ public class Main {
         if (!database.driverExists(1)) {
             Driver d1 = new Driver(1, "John Doe", 5, 10.5);
             dispatcher.addDriver(d1);
-            database.saveDriver(d1); // Save to Database
+            database.saveDriver(d1); // Save to DB
         }
 
         if (!database.driverExists(2)) {
@@ -422,13 +422,15 @@ public class Main {
                             (vehicles.length > 0 ? totalMileage / vehicles.length : 0) + " km");
                     break;
 
-               case 3:
-                            System.out.println("\n=== Driver Performance ===");
-                            Driver[] drivers = dispatcher.getAllDrivers();
-                            for (Driver d : drivers) {
-                                System.out.println(dispatcher.getDriverPerformance(d.id));
-                            }
-                            break;
+                case 3:
+                    System.out.println("\n=== Driver Performance ===");
+                    Driver[] drivers = dispatcher.getAllDrivers();
+                    for (Driver d : drivers) {
+                        int deliveries = dispatcher.getDriverRoutes(d.id).length;
+                        System.out.println(d.name + " (" + d.experienceYears + " yrs) | " +
+                                "Deliveries: " + deliveries);
+                    }
+                    break;
 
                 case 4:
                     System.out.println("\n=== Maintenance History ===");
